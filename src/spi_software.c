@@ -28,9 +28,9 @@ nsecs_to_ticks(uint32_t ns)
 static inline void
 ndelay(uint32_t nsecs)
 {
-    if (CONFIG_MACH_AVR)
-        // Slower MCUs don't require a delay
-        return;
+    // if (CONFIG_MACH_AVR)
+    //     // Slower MCUs don't require a delay
+    //     return;
     uint32_t end = timer_read_time() + nsecs_to_ticks(nsecs);
     while (timer_is_before(timer_read_time(), end))
         irq_poll();
