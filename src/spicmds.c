@@ -12,6 +12,8 @@
 #include "sched.h" // DECL_SHUTDOWN
 #include "spi_software.h" // spi_software_setup
 #include "spicmds.h" // spidev_transfer
+#include "board/irq.h" // irq_disable
+#include "board/misc.h" // timer_from_us
 
 struct spidev_s {
     union {
@@ -25,6 +27,23 @@ struct spidev_s {
 enum {
     SF_HAVE_PIN = 1, SF_SOFTWARE = 2, SF_HARDWARE = 4, SF_CS_ACTIVE_HIGH = 8
 };
+
+static uint32_t
+nsecs_to_ticks(uint32_t ns)
+{
+    return timer_from_us(ns * 1000) / 1000000;
+}
+
+static inline void
+ndelay(uint32_t nsecs)
+{
+    if (CONFIG_MACH_AVR)
+        // Slower MCUs don't require a delay
+        return;
+    uint32_t end = timer_read_time() + nsecs_to_ticks(nsecs);
+    while (timer_is_before(timer_read_time(), end))
+        irq_poll();
+}
 
 void
 command_config_spi(uint32_t *args)
@@ -99,12 +118,14 @@ spidev_transfer(struct spidev_s *spi, uint8_t receive_data
 
     if (flags & SF_HAVE_PIN)
         gpio_out_write(spi->pin, !!(flags & SF_CS_ACTIVE_HIGH));
+    ndelay(250);
 
     if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
         spi_software_transfer(spi->spi_software, receive_data, data_len, data);
     else
         spi_transfer(spi->spi_config, receive_data, data_len, data);
-
+    
+    ndelay(250);
     if (flags & SF_HAVE_PIN)
         gpio_out_write(spi->pin, !(flags & SF_CS_ACTIVE_HIGH));
 }

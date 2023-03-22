@@ -9,12 +9,31 @@
 #include "command.h" // DECL_COMMAND
 #include "sched.h" // sched_shutdown
 #include "spicmds.h" // spidev_set_software_bus
+#include "board/irq.h" // irq_disable
+#include "board/misc.h" // timer_from_us
 
 struct spi_software {
     struct gpio_in miso;
     struct gpio_out mosi, sclk;
     uint8_t mode;
 };
+
+static uint32_t
+nsecs_to_ticks(uint32_t ns)
+{
+    return timer_from_us(ns * 1000) / 1000000;
+}
+
+static inline void
+ndelay(uint32_t nsecs)
+{
+    if (CONFIG_MACH_AVR)
+        // Slower MCUs don't require a delay
+        return;
+    uint32_t end = timer_read_time() + nsecs_to_ticks(nsecs);
+    while (timer_is_before(timer_read_time(), end))
+        irq_poll();
+}
 
 void
 command_spi_set_software_bus(uint32_t *args)
@@ -62,10 +81,11 @@ spi_software_transfer(struct spi_software *ss, uint8_t receive_data
                 gpio_out_write(ss->mosi, outbuf & 0x80);
                 outbuf <<= 1;
                 gpio_out_toggle(ss->sclk);
+                ndelay(250);
                 inbuf <<= 1;
-                inbuf |= gpio_in_read(ss->miso);
+                inbuf |= gpio_in_read(ss->miso);                
                 gpio_out_toggle(ss->sclk);
-            }
+            }            
         }
 
         if (receive_data)
