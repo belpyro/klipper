@@ -11,6 +11,7 @@
 #include "spicmds.h" // spidev_set_software_bus
 #include "board/irq.h" // irq_disable
 #include "board/misc.h" // timer_from_us
+#include "autoconf.h" // CONFIG_MACH_AVR
 
 struct spi_software {
     struct gpio_in miso;
